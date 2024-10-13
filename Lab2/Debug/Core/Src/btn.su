@@ -1,0 +1,5 @@
+../Core/Src/btn.c:21:7:BTN_IsSet	16	static
+../Core/Src/btn.c:25:6:BTN_Set	16	static
+../Core/Src/btn.c:29:6:BTN_Reset	16	static
+../Core/Src/btn.c:33:6:BTN_ResetAll	16	static
+../Core/Src/btn.c:39:6:BTN_GetState	32	static
