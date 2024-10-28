@@ -36,6 +36,7 @@ void buf_push(struct Buffer* buf, uint8_t* data, size_t size) {
 		buf->end = (buf->end + 1) % sizeof(buf->data);
 	}
 	buf->data[buf->end] = '\0';
+	buf->isEmpty = false;
 }
 
 _Bool buf_pop(struct Buffer* buf, uint8_t* data, size_t size) {
@@ -52,5 +53,6 @@ _Bool buf_pop(struct Buffer* buf, uint8_t* data, size_t size) {
 		buf->begin = (buf->begin + 1) % sizeof(buf->data);
 	}
 	data[read + (read == size ? -1 : 0)] = '\0';
+	buf->isEmpty = (buf->begin == buf->end);
 	return true;
 }

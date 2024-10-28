@@ -2,4 +2,4 @@
 ../Core/Src/buf.c:16:7:is_buf_empty	16	static
 ../Core/Src/buf.c:20:7:is_buf_full	16	static
 ../Core/Src/buf.c:24:6:buf_push	32	static
-../Core/Src/buf.c:41:7:buf_pop	32	static
+../Core/Src/buf.c:42:7:buf_pop	32	static

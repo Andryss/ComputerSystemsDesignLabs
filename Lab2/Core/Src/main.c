@@ -58,7 +58,7 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-_Bool is_interrupts = true;
+_Bool is_interrupts = false;
 
 void enable_interrupts() {
 	HAL_NVIC_EnableIRQ(USART6_IRQn);
@@ -67,6 +67,7 @@ void enable_interrupts() {
 
 void disable_interrupts() {
 	HAL_UART_AbortReceive(&huart6);
+	HAL_Delay(10);
 	HAL_NVIC_DisableIRQ(USART6_IRQn);
 	is_interrupts = false;
 }
@@ -86,8 +87,8 @@ void transmit(uint8_t* data, size_t size) {
 	}
 }
 
-void transmitc(char* data, size_t size) {
-	transmit((uint8_t*) data, size);
+void transmitc(char* data) {
+	transmit((uint8_t*) data, strlen(data));
 }
 
 void receive() {
@@ -172,69 +173,85 @@ int main(void)
 	  return c >= '0' && c <= '9';
   }
 
-  bool is_digits(char* str, size_t size) {
-	  while (size > 0) {
-		  if (!is_digit(*str)) return false;
-		  str++;
-		  size--;
-	  }
-  	  return true;
-  }
-
   void validate_command() {
 	  if (state == 0) {
-		  if (stdinp > 12 && strncmp(stdin, "new ", 4) && is_digits(stdin + 4, MODE_STEPS)) {
-			  for (size_t i = 0; i < MODE_STEPS; i++) {
-				  char color = *(stdin + 4 + i);
+		  if (stdinp >= 4 && (strncmp(stdin, "new ", 4) == 0)) {
+			  size_t i = 0;
+			  char color = *(stdin + 4 + i);
+			  bool unknown_led = false;
+			  while (i < MODE_STEPS && color != '\r') {
 				  if (color == 'g') new_mode_steps[i] = 0x1;
 				  else if (color == 'y') new_mode_steps[i] = 0x2;
 				  else if (color == 'r') new_mode_steps[i] = 0x4;
 				  else if (color == 'n') new_mode_steps[i] = 0x0;
 				  else {
-					  transmitc("Unknown led\n", 12);
-					  return;
+					  unknown_led = true;
+					  transmitc("Unknown led\r\n");
+					  break;
 				  }
-			  } // fill with -1
-			  state = 1; // wait for new mode freq input
-			  transmitc("Input new mode freq (0-9):\n", 27);
-			  return;
-		  }
-		  if (stdinp > 4 && strncmp(stdin, "set ", 4) && is_digit(stdin[4])) {
-			  size_t mode = stdin[4] - '0';
-			  if (mode >= stdin[4]) {
-				  transmitc("Unknown mode\n", 13);
-				  return;
+				  i++;
+				  color = *(stdin + 4 + i);
 			  }
-			  cur_mode = mode;
-			  transmitc("OK\n", 3);
-			  return;
+			  if (!unknown_led) {
+				  while (i < MODE_STEPS) new_mode_steps[i++] = -1;
+				  state = 1; // wait for new mode freq input
+				  transmitc("Input new mode freq (0-9):\r\n");
+			  }
 		  }
-		  if (stdinp > 17 && strncmp(stdin, "set interrupts on", 17)) {
+		  else if (stdinp >= 4 && (strncmp(stdin, "set ", 4) == 0) && is_digit(stdin[4])) {
+			  size_t mode = stdin[4] - '0';
+			  if (mode >= MODES) {
+				  transmitc("Unknown mode\r\n");
+			  } else {
+				  cur_mode = mode;
+				  transmitc("OK\r\n");
+			  }
+		  }
+		  else if (stdinp >= 17 && (strncmp(stdin, "set interrupts on", 17) == 0)) {
 			  enable_interrupts();
-			  transmitc("OK\n", 3);
-			  return;
+			  transmitc("OK\r\n");
 		  }
-		  if (stdinp > 18 && strncmp(stdin, "set interrupts off", 18)) {
+		  else if (stdinp >= 18 && (strncmp(stdin, "set interrupts off", 18) == 0)) {
 			  disable_interrupts();
-			  transmitc("OK\n", 3);
-			  return;
+			  transmitc("OK\r\n");
 		  }
-		  transmitc("Unknown command\n", 17);
-		  return;
+		  else {
+			  transmitc("Unknown command\r\n");
+		  }
 	  } else if (state == 1) {
-		  if (stdinp > 1 && is_digit(stdin[0])) {
+		  if (stdinp >= 1 && is_digit(stdin[0])) {
 			  garland_freq[new_mode_num] = (stdin[0] - '0' + 1) * 100;
 			  for (size_t i = 0; i < MODE_STEPS; i++) {
 				  garland_modes[new_mode_num][i] = new_mode_steps[i];
 			  }
-			  state = 0;
-			  transmitc("OK\n", 3);
-			  return;
+			  state = 0; // wait for command
+			  new_mode_num = (new_mode_num + 1) % MODES;
+			  if (new_mode_num == 0) new_mode_num = 4;
+			  transmitc("OK\r\n");
 		  }
-		  transmitc("Unknown freq\n", 13);
-		  return;
+		  else {
+			  transmitc("Unknown freq\r\n");
+		  }
+	  }
+	  transmitc("> ");
+	  stdinp = 0;
+  }
+
+  void prevalidate_command() {
+	  if (state == 0) {
+		  if (stdinp >= 12 && (strncmp(stdin, "new ", 4) == 0)) {
+			  transmitc("\r\n");
+			  validate_command();
+		  }
+	  } else if (state == 1) {
+		  if (stdinp >= 1) {
+			  transmitc("\r\n");
+			  validate_command();
+		  }
 	  }
   }
+
+  transmitc("Ready to work\r\n> ");
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -244,12 +261,11 @@ int main(void)
 	  uint32_t cur_state = garland_modes[cur_mode][modes_steps[cur_mode]];
 
 	  if (cur_state == -1) {
-		  if (modes_steps[cur_mode] == 0) {
-			  cur_mode = (cur_mode + 1) % MODES;
-			  continue;
+		  while (cur_state == -1) {
+			  modes_steps[cur_mode] = 0;
+			  cur_state = garland_modes[cur_mode][0];
+			  if (cur_state == -1) cur_mode = (cur_mode + 1) % MODES;
 		  }
-		  modes_steps[cur_mode] = 0;
-		  cur_state = garland_modes[cur_mode][0];
 	  }
 
 	  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_RESET);
@@ -270,11 +286,16 @@ int main(void)
 		  if (buf_pop(&receiveBuffer, read, sizeof(read))) {
 			  char c = (char) read[0];
 			  if (stdinp == sizeof(stdin)) {
-				  transmitc("Input buffer overflow\n", 23);
+				  transmitc("\r\nInput buffer overflow\r\n> ");
 				  stdinp = 0;
 			  } else {
 				  stdin[stdinp++] = c;
-				  validate_command();
+				  if (c == '\r') {
+					  transmitc("\n");
+					  validate_command();
+				  } else {
+					  prevalidate_command();
+				  }
 			  }
 		  }
 
