@@ -68,7 +68,10 @@ uint8_t char_buf[1] = {'\0'};
 
 void transmit(uint8_t* data, size_t size) {
 	if (HAL_UART_Transmit_IT(&huart6, data, size) == HAL_BUSY) {
+		uint32_t pmask = __get_PRIMASK();
+		__disable_irq();
 		buf_push(&transmitBuffer, data, size);
+		__set_PRIMASK(pmask);
 	}
 }
 
@@ -81,13 +84,21 @@ void receive() {
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+	uint32_t pmask = __get_PRIMASK();
+	__disable_irq();
 	buf_push(&receiveBuffer, char_buf, sizeof(char_buf));
+	__set_PRIMASK(pmask);
+
 	transmit(char_buf, sizeof(char_buf));
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
   uint8_t buf[1024];
-  if (buf_pop(&transmitBuffer, buf, sizeof(buf))) {
+  uint32_t pmask = __get_PRIMASK();
+  __disable_irq();
+  _Bool is_pop = buf_pop(&transmitBuffer, buf, sizeof(buf));
+  __set_PRIMASK(pmask);
+  if (is_pop) {
 	  HAL_UART_Transmit_IT(&huart6, buf, strlen((char*) buf));
   }
 }
@@ -108,25 +119,31 @@ uint16_t edit_mode_brightness = 0;
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	  if (htim->Instance == TIM6) {
 		  if (cur_mode != -1) {
-			  uint16_t leds = mode_leds[cur_mode];
-			  uint16_t brightness = mode_brightness[cur_mode];
-
-			  if ((leds & 0x1) != 0) {
-				  htim4.Instance->CCR2 = brightness * 10;
-			  } else {
+			  if (cur_mode >= sizeof(mode_leds) / sizeof(uint16_t)) {
 				  htim4.Instance->CCR2 = 0;
-			  }
-
-			  if ((leds & 0x2) != 0) {
-				  htim4.Instance->CCR3 = brightness * 10;
-			  } else {
 				  htim4.Instance->CCR3 = 0;
-			  }
-
-			  if ((leds & 0x4) != 0) {
-				  htim4.Instance->CCR4 = brightness * 10;
-			  } else {
 				  htim4.Instance->CCR4 = 0;
+			  } else {
+				  uint16_t leds = mode_leds[cur_mode];
+				  uint16_t brightness = mode_brightness[cur_mode];
+
+				  if ((leds & 0x1) != 0) {
+					  htim4.Instance->CCR2 = brightness * 10;
+				  } else {
+					  htim4.Instance->CCR2 = 0;
+				  }
+
+				  if ((leds & 0x2) != 0) {
+					  htim4.Instance->CCR3 = brightness * 10;
+				  } else {
+					  htim4.Instance->CCR3 = 0;
+				  }
+
+				  if ((leds & 0x4) != 0) {
+					  htim4.Instance->CCR4 = brightness * 10;
+				  } else {
+					  htim4.Instance->CCR4 = 0;
+				  }
 			  }
 
 			  cur_mode = -1;
@@ -183,18 +200,7 @@ int main(void)
 		  mode_leds_str[i] = leds_str(mode_leds[i]);
 	  }
 
-	  char *format = "\
-			  Modes:\r\n\
-			  1 - %s %d%%\r\n\
-			  2 - %s %d%%\r\n\
-			  3 - %s %d%%\r\n\
-			  4 - %s %d%%\r\n\
-			  5 - %s %d%%\r\n\
-			  6 - %s %d%%\r\n\
-			  7 - %s %d%%\r\n\
-			  8 - %s %d%%\r\n\
-			  9 - %s %d%%\r\n\
-			  > ";
+	  char format[] = "Modes:\n\r1-%c%d\n\r2-%c%d\n\r3-%c%d\n\r4-%c%d\n\r5-%c%d\n\r6-%c%d\n\r7-%c%d\n\r8-%c%d\n\r9-%c%d\n\r> ";
 
 	  snprintf(buf, sizeof(buf), format,
 			  mode_leds_str[0], mode_brightness[0], mode_leds_str[1], mode_brightness[1], mode_leds_str[2], mode_brightness[2],
@@ -212,12 +218,12 @@ int main(void)
 			  snprintf(buf, sizeof(buf), "Mode %c selected\n\r> ", cmd);
 			  transmitc(buf);
 		  } else if (cmd == '0') {
-			  cur_mode = -1;
+			  cur_mode = 100;
 			  transmitc("All LEDs off\n\r> ");
 		  } else if (cmd == '\r') {
 			  state = ST_EDIT_WAIT_MODE;
 			  edit_mode = -1;
-			  transmitc("Enter edit mode\r\nChoose mode to edit [1-9]: ");
+			  transmitc("Enter edit mode\n\rChoose mode to edit [1-9]: ");
 		  } else {
 			  transmitc("Unknown command (available: 1-9,0,Enter)\n\r> ");
 		  }
@@ -225,7 +231,7 @@ int main(void)
 		  if (cmd >= '1' && cmd <= '9') {
 			  edit_mode = (cmd - '1');
 			  char buf[128];
-			  snprintf(buf, sizeof(buf), "Selected mode %c. Enter to continue or choose another mode [1-9]: ", cmd);
+			  snprintf(buf, sizeof(buf), "Selected %c. Enter or choose another mode [1-9]: ", ('1' + edit_mode));
 			  transmitc(buf);
 		  } else if (cmd == '\r') {
 			  if (edit_mode == -1) {
@@ -237,38 +243,38 @@ int main(void)
 			  }
 		  } else {
 			  if (edit_mode == -1) {
-				  transmitc("Unknown command. Choose mode to edit [1-9]: ");
+				  transmitc("Unknown. Choose mode to edit [1-9]: ");
 			  } else {
 				  char buf[128];
-				  snprintf(buf, sizeof(buf), "Unknown command. Selected mode %c. Enter to continue or choose another mode [1-9]: ", cmd);
+				  snprintf(buf, sizeof(buf), "Selected %c. Enter or choose another mode [1-9]: ", ('1' + edit_mode));
 				  transmitc(buf);
 			  }
 		  }
 	  } else if (state == ST_EDIT_WAIT_LED) {
 		  if (cmd == 'g') {
 			  edit_mode_led = 0x1;
-			  transmitc("Green led selected. Enter to continue or choose another led [g,y,r]: ");
+			  transmitc("Green led. Enter or choose another led [g,y,r]: ");
 		  } else if (cmd == 'y') {
 			  edit_mode_led = 0x2;
-			  transmitc("Yellow led selected. Enter to continue or choose another led [g,y,r]: ");
+			  transmitc("Yellow led. Enter or choose another led [g,y,r]: ");
 		  } else if (cmd == 'r') {
 			  edit_mode_led = 0x4;
-			  transmitc("Red led selected. Enter to continue or choose another led [g,y,r]: ");
+			  transmitc("Red led. Enter or choose another led [g,y,r]: ");
 		  } else if (cmd == '\r') {
 			  if (edit_mode_led == 0) {
-				  transmitc("No led selected. Choose led for mode [g,y,r]: ");
+				  transmitc("No led. Choose led for mode [g,y,r]: ");
 			  } else {
 				  state = ST_EDIT_WAIT_BRIGHT;
 				  edit_mode_brightness = 40;
-				  transmitc("Default led brightness 40%. Enter to continue or choose another brightness [1-9,0,+|-]: ");
+				  transmitc("40%. Enter or choose another brightness: ");
 			  }
 		  } else {
 			  if (edit_mode_led == 0) {
-				  transmitc("Unknown command. Choose led for mode [g,y,r]: ");
+				  transmitc("Unknown. Choose led for mode [g,y,r]: ");
 			  } else {
 				  char buf[128];
 				  char *led = (edit_mode_led == 0x1 ? "Green" : edit_mode_led == 0x2 ? "Yellow" : "Red");
-				  snprintf(buf, sizeof(buf), "Unknown command. %s led selected. Enter to continue or choose another led [g,y,r]: ", led);
+				  snprintf(buf, sizeof(buf), "%s led. Enter or choose another led [g,y,r]: ", led);
 				  transmitc(buf);
 			  }
 		  }
@@ -276,22 +282,22 @@ int main(void)
 		  if (cmd >= '1' && cmd <= '9') {
 			  edit_mode_brightness = (cmd - '0') * 10;
 			  char buf[128];
-			  snprintf(buf, sizeof(buf), "Led brightness %d%%. Enter to continue or choose another brightness [1-9,0,+|-]: ", edit_mode_brightness);
+			  snprintf(buf, sizeof(buf), "%d%%. Enter or choose another: ", edit_mode_brightness);
 			  transmitc(buf);
 		  } else if (cmd == '0') {
 			  edit_mode_brightness = 100;
-			  transmitc("Led brightness 100%. Enter to continue or choose another brightness [1-9,0,+|-]: ");
+			  transmitc("100%. Enter or choose another: ");
 		  } else if (cmd == '+') {
 			  edit_mode_brightness += 10;
 			  if (edit_mode_brightness > 100) edit_mode_brightness = 100;
 			  char buf[128];
-			  snprintf(buf, sizeof(buf), "Led brightness %d%%. Enter to continue or choose another brightness [1-9,0,+|-]: ", edit_mode_brightness);
+			  snprintf(buf, sizeof(buf), "%d%%. Enter or choose another: ", edit_mode_brightness);
 			  transmitc(buf);
 		  } else if (cmd == '-') {
 			  edit_mode_brightness -= 10;
 			  if (edit_mode_brightness < 10) edit_mode_brightness = 10;
 			  char buf[128];
-			  snprintf(buf, sizeof(buf), "Led brightness %d%%. Enter to continue or choose another brightness [1-9,0,+|-]: ", edit_mode_brightness);
+			  snprintf(buf, sizeof(buf), "%d%%. Enter or choose another: ", edit_mode_brightness);
 			  transmitc(buf);
 		  } else if (cmd == '\r') {
 			  state = ST_MAIN;
@@ -301,7 +307,7 @@ int main(void)
 			  print_mode_message();
 		  } else {
 			  char buf[128];
-			  snprintf(buf, sizeof(buf), "Unknown command. Led brightness %d%%. Enter to continue or choose another brightness [1-9,0,+|-]: ", edit_mode_brightness);
+			  snprintf(buf, sizeof(buf), "Unknown. %d%%. Enter or choose another: ", edit_mode_brightness);
 			  transmitc(buf);
 		  }
 	  }
@@ -309,7 +315,7 @@ int main(void)
 
   if (!hello_print) {
 	  hello_print = true;
-	  transmitc("\r\n\r\nProgramm started\r\n");
+	  transmitc("\n\r\n\rProgramm started\n\r");
 	  print_mode_message();
   }
 
@@ -328,12 +334,18 @@ int main(void)
 	  receive();
 
 	  uint8_t read[2] = {0};
-	  if (buf_pop(&receiveBuffer, read, sizeof(read))) {
+
+	  uint32_t pmask = __get_PRIMASK();
+	  __disable_irq();
+	  _Bool is_pop = buf_pop(&receiveBuffer, read, sizeof(read));
+	  __set_PRIMASK(pmask);
+
+	  if (is_pop) {
 		  char c = (char) read[0];
 		  if (c == '\r') {
 			  transmitc("\n");
 		  } else {
-			  transmitc("\r\n");
+			  transmitc("\n\r");
 		  }
 		  handle_command(c);
 	  }
@@ -344,7 +356,7 @@ int main(void)
 
   if (hello_print) {
   	  hello_print = false;
-  	  transmitc("\r\nProgramm finished\r\n");
+  	  transmitc("\n\rProgramm finished\n\r");
   }
   /* USER CODE END 3 */
 }
@@ -421,7 +433,7 @@ void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+     ex: printf("Wrong parameters value: file %s on line %d\n\r", file, line) */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */

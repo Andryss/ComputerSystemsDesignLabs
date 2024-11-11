@@ -18,7 +18,7 @@ _Bool is_buf_empty(struct Buffer* buf) {
 }
 
 _Bool is_buf_full(struct Buffer* buf) {
-	return ((buf->end + 1 == buf->begin) || (buf->begin == 0 && buf->end == sizeof(buf->data) - 1));
+	return ((buf->end + 1 == buf->begin) || (buf->begin == 0 && buf->end == 2048 - 1));
 }
 
 void buf_push(struct Buffer* buf, uint8_t* data, size_t size) {
