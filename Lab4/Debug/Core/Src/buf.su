@@ -1,0 +1,7 @@
+../Core/Src/buf.c:9:6:buf_init	16	static
+../Core/Src/buf.c:16:6:is_buf_empty	16	static
+../Core/Src/buf.c:20:6:is_buf_full	16	static
+../Core/Src/buf.c:24:6:buf_push	32	static
+../Core/Src/buf.c:42:6:buf_pop	32	static
+../Core/Src/buf.c:60:6:buf_push_itsafe	40	static,ignoring_inline_asm
+../Core/Src/buf.c:67:6:buf_pop_itsafe	40	static,ignoring_inline_asm

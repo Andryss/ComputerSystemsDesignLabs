@@ -1,0 +1,5 @@
+../Core/Src/pca9538.c:10:19:PCA9538_Read_Register	40	static
+../Core/Src/pca9538.c:18:19:PCA9538_Read_Inputs	24	static
+../Core/Src/pca9538.c:26:19:PCA9538_Read_Config	24	static
+../Core/Src/pca9538.c:35:19:PCA9538_Write_Register	40	static
+../Core/Src/pca9538.c:47:19:PCA9538_SetDefaultConfig	24	static
