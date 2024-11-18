@@ -7,17 +7,6 @@
 
 #include "btn.h"
 
-
-
-uint32_t up_threshold = 3000;
-uint32_t down_threshold = 200;
-
-uint32_t last_time = 0;
-uint32_t minimum_delay = 20;
-
-uint32_t reset_time = 1;
-uint32_t set_time = 0;
-
 bool BTN_IsSet(uint16_t* state, uint16_t bit) {
 	return (*state & bit) > 0;
 }
@@ -34,9 +23,16 @@ void BTN_ResetAll(uint16_t* state) {
 	*state = 0;
 }
 
-
-
 void BTN_GetState(uint16_t* state) {
+	static uint32_t up_threshold = 3000;
+	static uint32_t down_threshold = 200;
+
+	static uint32_t last_time = 0;
+	static uint32_t minimum_delay = 20;
+
+	static uint32_t reset_time = 1;
+	static uint32_t set_time = 0;
+
 	BTN_ResetAll(state);
 
 	while (HAL_GetTick() < last_time + minimum_delay) { }

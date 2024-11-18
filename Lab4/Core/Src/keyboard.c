@@ -7,8 +7,6 @@
 
 #include "keyboard.h"
 
-uint32_t pull_delay = 3; // delay between write/read register signals
-
 HAL_StatusTypeDef KBRD_Init(void) {
 	HAL_StatusTypeDef status = PCA9538_SetDefaultConfig(KEYBOARD_I2C_ADDR);
 	if (status != HAL_OK) {
@@ -40,7 +38,20 @@ void KBRD_ResetAll(uint16_t* state) {
 }
 
 HAL_StatusTypeDef KBRD_GetState(uint16_t* state) {
+	static uint32_t pull_delay = 3; // delay between write/read register signals
+
+	static uint32_t last_time = 0;
+	static uint32_t minimum_delay = 20;
+
+	static uint16_t prev_state = 0;
+
 	KBRD_ResetAll(state);
+
+	uint16_t cur_state;
+	KBRD_ResetAll(state);
+
+	while (HAL_GetTick() < last_time + minimum_delay) { }
+	last_time = HAL_GetTick();
 
 	HAL_StatusTypeDef status;
 	uint8_t input_port;
@@ -62,20 +73,24 @@ HAL_StatusTypeDef KBRD_GetState(uint16_t* state) {
 			return status;
 		}
 
-		input_port = (input_port >> 4) & 0x7; // col
+		input_port = (input_port >> 4) & 0x7; // column
 		if (input_port != 0) {
-			if (!(input_port & 0x4)) {
-				KBRD_Set(state, BTN_9 << i);
+			if ((input_port & 0x4) == 0) {
+				KBRD_Set(&cur_state, BTN_9 << i);
 			}
-			if (!(input_port & 0x2)) {
-				KBRD_Set(state, BTN_5 << i);
+			if ((input_port & 0x2) == 0) {
+				KBRD_Set(&cur_state, BTN_5 << i);
 			}
-			if (!(input_port & 0x1)) {
-				KBRD_Set(state, BTN_1 << i);
+			if ((input_port & 0x1) == 0) {
+				KBRD_Set(&cur_state, BTN_1 << i);
 			}
 		}
 
 		HAL_Delay(pull_delay);
 	}
+
+	*state = cur_state & (~prev_state);
+	prev_state = cur_state;
+
 	return HAL_OK;
 }
