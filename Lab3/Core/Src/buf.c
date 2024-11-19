@@ -13,11 +13,11 @@ void buf_init(struct Buffer* buf) {
 	buf->isEmpty = true;
 }
 
-_Bool is_buf_empty(struct Buffer* buf) {
+bool is_buf_empty(struct Buffer* buf) {
 	return buf->isEmpty;
 }
 
-_Bool is_buf_full(struct Buffer* buf) {
+bool is_buf_full(struct Buffer* buf) {
 	return ((buf->end + 1 == buf->begin) || (buf->begin == 0 && buf->end == 2048 - 1));
 }
 
@@ -39,7 +39,7 @@ void buf_push(struct Buffer* buf, uint8_t* data, size_t size) {
 	buf->isEmpty = false;
 }
 
-_Bool buf_pop(struct Buffer* buf, uint8_t* data, size_t size) {
+bool buf_pop(struct Buffer* buf, uint8_t* data, size_t size) {
 	if (is_buf_empty(buf)) {
 		return false;
 	}
@@ -55,4 +55,19 @@ _Bool buf_pop(struct Buffer* buf, uint8_t* data, size_t size) {
 	data[read + (read == size ? -1 : 0)] = '\0';
 	buf->isEmpty = (buf->begin == buf->end);
 	return true;
+}
+
+void buf_push_itsafe(struct Buffer* buf, uint8_t* data, size_t size) {
+	uint32_t pmask = __get_PRIMASK();
+	__disable_irq();
+	buf_push(buf, data, size);
+	__set_PRIMASK(pmask);
+}
+
+bool buf_pop_itsafe(struct Buffer* buf, uint8_t* data, size_t size) {
+	uint32_t pmask = __get_PRIMASK();
+	__disable_irq();
+	bool result = buf_pop(buf, data, size);
+	__set_PRIMASK(pmask);
+	return result;
 }

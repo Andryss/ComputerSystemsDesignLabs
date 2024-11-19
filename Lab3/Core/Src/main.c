@@ -68,10 +68,7 @@ uint8_t char_buf[1] = {'\0'};
 
 void transmit(uint8_t* data, size_t size) {
 	if (HAL_UART_Transmit_IT(&huart6, data, size) == HAL_BUSY) {
-		uint32_t pmask = __get_PRIMASK();
-		__disable_irq();
-		buf_push(&transmitBuffer, data, size);
-		__set_PRIMASK(pmask);
+		buf_push_itsafe(&transmitBuffer, data, size);
 	}
 }
 
@@ -84,20 +81,13 @@ void receive() {
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-	uint32_t pmask = __get_PRIMASK();
-	__disable_irq();
-	buf_push(&receiveBuffer, char_buf, sizeof(char_buf));
-	__set_PRIMASK(pmask);
-
+	buf_push_itsafe(&receiveBuffer, char_buf, sizeof(char_buf));
 	transmit(char_buf, sizeof(char_buf));
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
   uint8_t buf[1024];
-  uint32_t pmask = __get_PRIMASK();
-  __disable_irq();
-  _Bool is_pop = buf_pop(&transmitBuffer, buf, sizeof(buf));
-  __set_PRIMASK(pmask);
+  bool is_pop = buf_pop_itsafe(&transmitBuffer, buf, sizeof(buf));
   if (is_pop) {
 	  HAL_UART_Transmit_IT(&huart6, buf, strlen((char*) buf));
   }
@@ -335,10 +325,7 @@ int main(void)
 
 	  uint8_t read[2] = {0};
 
-	  uint32_t pmask = __get_PRIMASK();
-	  __disable_irq();
-	  _Bool is_pop = buf_pop(&receiveBuffer, read, sizeof(read));
-	  __set_PRIMASK(pmask);
+	  bool is_pop = buf_pop_itsafe(&receiveBuffer, read, sizeof(read));
 
 	  if (is_pop) {
 		  char c = (char) read[0];
