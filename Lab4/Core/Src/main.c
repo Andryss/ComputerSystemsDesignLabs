@@ -42,6 +42,7 @@
 #define ST_EDIT_WAIT_MODE   1  /* edit mode, wait for mode selection */
 #define ST_EDIT_WAIT_LED    2  /* edit mode, wait for led selection */
 #define ST_EDIT_WAIT_BRIGHT 3  /* edit mode, wait for led brightness selection */
+#define ST_DEBUG            4  /* debug mode */
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -306,6 +307,10 @@ int main(void)
   			  snprintf(buf, sizeof(buf), "Unknown. %d%%. Enter or choose another: ", edit_mode_brightness);
   			  transmitc(buf);
   		  }
+  	  } else if (state == ST_DEBUG) {
+  		  if ((cmd >= '0' && cmd <= '9') || cmd == '*' || cmd == '#') {
+  			  transmitc("> ");
+  		  }
   	  }
     }
 
@@ -366,6 +371,20 @@ int main(void)
 			if (KBRD_IsSet(keyboard, BTN_11)) return '9';
 			if (KBRD_IsSet(keyboard, BTN_12)) return '\r';
 			return 0;
+		} else if (state == ST_DEBUG) {
+			if (KBRD_IsSet(keyboard, BTN_1)) return '1';
+			if (KBRD_IsSet(keyboard, BTN_2)) return '4';
+			if (KBRD_IsSet(keyboard, BTN_3)) return '7';
+			if (KBRD_IsSet(keyboard, BTN_4)) return '*';
+			if (KBRD_IsSet(keyboard, BTN_5)) return '2';
+			if (KBRD_IsSet(keyboard, BTN_6)) return '5';
+			if (KBRD_IsSet(keyboard, BTN_7)) return '8';
+			if (KBRD_IsSet(keyboard, BTN_8)) return '0';
+			if (KBRD_IsSet(keyboard, BTN_9)) return '3';
+			if (KBRD_IsSet(keyboard, BTN_10)) return '6';
+			if (KBRD_IsSet(keyboard, BTN_11)) return '9';
+			if (KBRD_IsSet(keyboard, BTN_12)) return '#';
+			return 0;
 		}
     	return 0;
     }
@@ -384,6 +403,7 @@ int main(void)
     HAL_TIM_Base_Start_IT(&htim6);
     KBRD_Init();
 
+    uint16_t btn_state;
     uint16_t kbrd_state;
   /* USER CODE END 2 */
 
@@ -391,6 +411,20 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  BTN_GetState(&btn_state);
+
+	  if (BTN_IsSet(&btn_state, BTN_DOWN_EVENT)) {
+		  if (state == ST_MAIN) {
+			  state = ST_DEBUG;
+			  transmitc("Debug mode entered\n\r> ");
+		  } else if (state == ST_DEBUG) {
+			  state = ST_MAIN;
+			  transmitc("\n\rDebug mode exit\n\r");
+		  	  print_mode_message();
+		  }
+		  continue;
+	  }
+
 	  KBRD_GetState(&kbrd_state);
 
 	  char c = parse_pressed_button(&kbrd_state);
@@ -407,6 +441,11 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+  }
+
+  if (hello_print) {
+  	  hello_print = false;
+  	  transmitc("\n\rProgramm finished\n\r");
   }
   /* USER CODE END 3 */
 }
