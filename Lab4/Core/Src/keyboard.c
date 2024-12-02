@@ -48,7 +48,7 @@ HAL_StatusTypeDef KBRD_GetState(uint16_t* state) {
 	KBRD_ResetAll(state);
 
 	uint16_t cur_state;
-	KBRD_ResetAll(state);
+	KBRD_ResetAll(&cur_state);
 
 	while (HAL_GetTick() < last_time + minimum_delay) { }
 	last_time = HAL_GetTick();

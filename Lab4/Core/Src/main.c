@@ -64,7 +64,6 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-struct Buffer receiveBuffer = {0};
 struct Buffer transmitBuffer = {0};
 
 uint8_t char_buf[1] = {'\0'};
@@ -79,21 +78,9 @@ void transmitc(char* data) {
 	transmit((uint8_t*) data, strlen(data));
 }
 
-void receive() {
-	HAL_UART_Receive_IT(&huart6, char_buf, sizeof(char_buf));
-}
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-	buf_push_itsafe(&receiveBuffer, char_buf, sizeof(char_buf));
-	transmit(char_buf, sizeof(char_buf));
-}
-
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
   uint8_t buf[1024];
-  uint32_t pmask = __get_PRIMASK();
-  __disable_irq();
-  _Bool is_pop = buf_pop(&transmitBuffer, buf, sizeof(buf));
-  __set_PRIMASK(pmask);
+  bool is_pop = buf_pop_itsafe(&transmitBuffer, buf, sizeof(buf));
   if (is_pop) {
 	  HAL_UART_Transmit_IT(&huart6, buf, strlen((char*) buf));
   }
@@ -164,7 +151,6 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  buf_init(&receiveBuffer);
   buf_init(&transmitBuffer);
   /* USER CODE END Init */
 
@@ -416,7 +402,7 @@ int main(void)
 	  if (BTN_IsSet(&btn_state, BTN_DOWN_EVENT)) {
 		  if (state == ST_MAIN) {
 			  state = ST_DEBUG;
-			  transmitc("Debug mode entered\n\r> ");
+			  transmitc("\n\rDebug mode entered\n\r> ");
 		  } else if (state == ST_DEBUG) {
 			  state = ST_MAIN;
 			  transmitc("\n\rDebug mode exit\n\r");

@@ -1,6 +1,6 @@
-../Core/Src/keyboard.c:17:19:KBRD_Init	16	static
-../Core/Src/keyboard.c:31:6:KBRD_IsSet	16	static
-../Core/Src/keyboard.c:35:6:KBRD_Set	16	static
-../Core/Src/keyboard.c:39:6:KBRD_Reset	16	static
-../Core/Src/keyboard.c:43:6:KBRD_ResetAll	16	static
-../Core/Src/keyboard.c:47:19:KBRD_GetState	24	static
+../Core/Src/keyboard.c:10:19:KBRD_Init	16	static
+../Core/Src/keyboard.c:24:6:KBRD_IsSet	16	static
+../Core/Src/keyboard.c:28:6:KBRD_Set	16	static
+../Core/Src/keyboard.c:32:6:KBRD_Reset	16	static
+../Core/Src/keyboard.c:36:6:KBRD_ResetAll	16	static
+../Core/Src/keyboard.c:40:19:KBRD_GetState	24	static

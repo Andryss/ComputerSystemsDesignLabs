@@ -2748,17 +2748,17 @@ void MX_TIM6_Init(void)
  8001446:	4b15      	ldr	r3, [pc, #84]	; (800149c <MX_TIM6_Init+0x64>)
  8001448:	4a15      	ldr	r2, [pc, #84]	; (80014a0 <MX_TIM6_Init+0x68>)
  800144a:	601a      	str	r2, [r3, #0]
-  htim6.Init.Prescaler = 15;
+  htim6.Init.Prescaler = 44;
  800144c:	4b13      	ldr	r3, [pc, #76]	; (800149c <MX_TIM6_Init+0x64>)
- 800144e:	220f      	movs	r2, #15
+ 800144e:	222c      	movs	r2, #44	; 0x2c
  8001450:	605a      	str	r2, [r3, #4]
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
  8001452:	4b12      	ldr	r3, [pc, #72]	; (800149c <MX_TIM6_Init+0x64>)
  8001454:	2200      	movs	r2, #0
  8001456:	609a      	str	r2, [r3, #8]
-  htim6.Init.Period = 9999;
+  htim6.Init.Period = 11999;
  8001458:	4b10      	ldr	r3, [pc, #64]	; (800149c <MX_TIM6_Init+0x64>)
- 800145a:	f242 720f 	movw	r2, #9999	; 0x270f
+ 800145a:	f642 62df 	movw	r2, #11999	; 0x2edf
  800145e:	60da      	str	r2, [r3, #12]
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
  8001460:	4b0e      	ldr	r3, [pc, #56]	; (800149c <MX_TIM6_Init+0x64>)
